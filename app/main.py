@@ -23,7 +23,10 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from pydantic import BaseModel, Field
 
+from fastapi.concurrency import run_in_threadpool
+
 from app import db
+from app.ai import ai_enabled, model_name, read_agreement
 from app.emailer import email_enabled, send_email
 from app.pdfutil import (
     already_certified,
@@ -140,6 +143,8 @@ def render(request: Request, name: str, status_code: int = 200, **context):
     context["request"] = request
     context.setdefault("company_name", db.setting("company_name", ""))
     context.setdefault("email_enabled", email_enabled())
+    context.setdefault("ai_on", ai_enabled())
+    context.setdefault("ai_model", model_name())
     context.setdefault("public_page", False)
     context["flash"] = flashed
     response = templates.TemplateResponse(request, name, context, status_code=status_code)
@@ -258,7 +263,7 @@ def ingest(data: bytes, filename: str, title: str, client_name: str, client_emai
     original.parent.mkdir(parents=True, exist_ok=True)
     original.write_bytes(data)
     try:
-        detected, rotated = detect_fields(original)
+        detected, rotated, report = detect_fields(original, read_agreement if ai_enabled() else None)
         count = page_count(original)
     except Exception:
         original.unlink(missing_ok=True)
@@ -312,6 +317,12 @@ def ingest(data: bytes, filename: str, title: str, client_name: str, client_emai
             }
         )
     db.add_event(file_id, "created", f"{count} pages")
+    if report["used"]:
+        parties = ", ".join(f"{party['name']} ({party['role']})" for party in report["parties"]) or "none named"
+        from_ai = sum(1 for field in detected if field["source"] == "ai")
+        db.add_event(file_id, "ai_read", f"{model_name()} · parties: {parties} · {from_ai} fields")
+    elif report["error"]:
+        db.add_event(file_id, "ai_failed", f"{report['error']} · used the built-in rules instead")
     if detected:
         db.add_event(file_id, "fields_found", f"{len(detected)} placed from the document")
     else:
@@ -486,7 +497,15 @@ async def create_file(request: Request):
         if upload is None or not getattr(upload, "filename", ""):
             raise ValueError("Choose the agreement PDF.")
         data = await upload.read()
-        file_id = ingest(data, upload.filename, payload["title"], payload["client_name"], payload["client_email"], payload["note"])
+        file_id = await run_in_threadpool(
+            ingest,
+            data,
+            upload.filename,
+            payload["title"],
+            payload["client_name"],
+            payload["client_email"],
+            payload["note"],
+        )
     except ValueError as exc:
         return render(request, "new.html", status_code=400, error=str(exc), form=payload)
     return redirect(f"/files/{file_id}", "Agreement uploaded. Check the fields, then use the signing link.")
@@ -529,10 +548,13 @@ def file_page(request: Request, file_id: str):
         if field["party"] == "other" and signer and signer["role"] == "client":
             other_warning = True
             break
+    events = db.list_events(file_id)
+    ai_event = next((event for event in events if event["kind"] in {"ai_read", "ai_failed"}), None)
     return render(
         request,
         "file.html",
         file=record,
+        ai_event=ai_event,
         signers=signers,
         fields=prepared,
         pages=pages,
@@ -540,7 +562,7 @@ def file_page(request: Request, file_id: str):
         other_warning=other_warning,
         status_label=STATUS_LABELS.get(record["status"], record["status"]),
         base=base_url(request),
-        events=db.list_events(file_id),
+        events=events,
         has_signature=any(field["kind"] == "signature" for field in fields),
         state={
             "fileId": record["id"],

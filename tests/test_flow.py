@@ -15,6 +15,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("SEAL_DATA", str(tmp_path))
     monkeypatch.delenv("SEAL_ACCESS_KEY", raising=False)
     monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     db.init_db()
     with TestClient(app) as test_client:
         yield test_client
@@ -72,7 +73,7 @@ def _token(client, file_id: str) -> str:
 def test_detector_ignores_sentences_and_keeps_labels(tmp_path):
     path = tmp_path / "agreement.pdf"
     path.write_bytes(_pdf_with_signature_block())
-    fields, _rotated = detect_fields(path)
+    fields, _rotated, _report = detect_fields(path)
     kinds = [field["kind"] for field in fields]
     assert kinds.count("signature") == 1
     assert "name" in kinds

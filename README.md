@@ -2,7 +2,7 @@
 
 Seal gets a client agreement signed before work starts on a file. A file is one job for one client. You upload whatever PDF the agreement happens to be, check the signature fields, and send a link. When every signer has signed, the file is ready to start.
 
-The agreement does not have to be one Seal has seen. Seal looks for short labels (`Signature`, `Printed name`, `Date`, `Initials`) and for existing PDF form fields. You can move those boxes or place new ones. The words of the agreement are not edited. Ink goes into the fields, and a completion page is added at the end.
+The agreement does not have to be one Seal has seen. Seal looks for short labels (`Signature`, `Printed name`, `Date`, `Initials`) and for existing PDF form fields. When `OPENAI_API_KEY` is set, it also sends the agreement's text to OpenAI, which names the parties and points at the lines to sign, including blank lines with unusual captions. The model picks lines by number and never supplies coordinates. If the call fails, the rules alone place the fields. You can move any box or place new ones. The words of the agreement are not edited. Ink goes into the fields, and a completion page is added at the end.
 
 ## Run it
 
@@ -43,6 +43,7 @@ Optional environment variables are listed in `.env.example`. Leave `SEAL_ACCESS_
 
 - `app/main.py` — pages and the signing flow
 - `app/pdfutil.py` — find fields, stamp a signature, add the completion page
+- `app/ai.py` — optional OpenAI pass that reads the agreement text
 - `app/db.py` — SQLite
 - `SUBMISSION.md` — draft text for the three written answers
 

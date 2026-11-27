@@ -144,7 +144,15 @@ def _from_rect(page_index: int, rect: fitz.Rect, page_rect: fitz.Rect, kind: str
     return _field(page_index, x, y, w, h, kind, party, source)
 
 
-def _from_label(page_index: int, bbox: tuple, page_rect: fitz.Rect, kind: str, party: str) -> dict:
+def _from_label(
+    page_index: int,
+    bbox: tuple,
+    page_rect: fitz.Rect,
+    kind: str,
+    party: str,
+    text: str = "",
+    source: str = "detected",
+) -> dict:
     pw, ph = page_rect.width, page_rect.height
     x0 = (bbox[0] - page_rect.x0) / pw
     x1 = (bbox[2] - page_rect.x0) / pw
@@ -153,6 +161,10 @@ def _from_label(page_index: int, bbox: tuple, page_rect: fitz.Rect, kind: str, p
     dw, dh = SIZES[kind]
     # The box sits on the signing line, with its bottom edge just under it.
     y = line_bottom - dh + 0.004
+    if text and not re.search(r"[A-Za-z0-9]", text):
+        # A bare blank line, with its label somewhere else. Start the box at the line itself.
+        w = min(dw, max(0.1, line_w))
+        return _field(page_index, x0, y, w, dh, kind, party, source)
     # A line with a blank after the label should be filled, not followed by a box in the margin.
     if line_w >= 0.2:
         w = min(dw, max(0.16, line_w * 0.5))
@@ -163,7 +175,7 @@ def _from_label(page_index: int, bbox: tuple, page_rect: fitz.Rect, kind: str, p
         if x + w > 0.97:
             x = x0
             y = line_bottom + 0.01
-    return _field(page_index, x, y, w, dh, kind, party, "detected")
+    return _field(page_index, x, y, w, dh, kind, party, source)
 
 
 def _near(left: dict, right: dict) -> bool:
@@ -191,9 +203,13 @@ def _widget_kind(widget: fitz.Widget) -> str | None:
     return None
 
 
-def detect_fields(path: Path) -> tuple[list[dict], bool]:
+def detect_fields(path: Path, reader=None) -> tuple[list[dict], bool, dict]:
+    """Find signing fields. `reader` is an optional callable that reads the text
+    (see app.ai.read_agreement). Its picks come first; the rules fill any gaps."""
     doc = open_doc(path)
     found: list[dict] = []
+    every_line: list[dict] = []
+    rects: dict[int, fitz.Rect] = {}
     rotated = False
     try:
         for page_index, page in enumerate(doc):
@@ -202,6 +218,7 @@ def detect_fields(path: Path) -> tuple[list[dict], bool]:
             page_rect = page.rect
             if page_rect.width <= 0 or page_rect.height <= 0:
                 continue
+            rects[page_index] = page_rect
             try:
                 widgets = list(page.widgets() or [])
             except Exception:
@@ -220,7 +237,9 @@ def detect_fields(path: Path) -> tuple[list[dict], bool]:
                     if not text or not bbox:
                         continue
                     y_pct = (bbox[1] - page_rect.y0) / page_rect.height
-                    lines.append({"text": text, "bbox": bbox, "y": y_pct})
+                    entry = {"id": len(every_line), "page": page_index, "text": text, "bbox": bbox, "y": y_pct}
+                    lines.append(entry)
+                    every_line.append(entry)
 
             for index, line in enumerate(lines):
                 kind = _classify(line["text"])
@@ -232,18 +251,40 @@ def detect_fields(path: Path) -> tuple[list[dict], bool]:
                     if 0 <= line["y"] - prev["y"] < 0.18 and len(prev["text"]) <= 40
                 )
                 party = _party(f"{above} {line['text']}")
-                found.append(_from_label(page_index, line["bbox"], page_rect, kind, party))
+                found.append(_from_label(page_index, line["bbox"], page_rect, kind, party, line["text"]))
     finally:
         doc.close()
 
+    report: dict = {"used": False, "parties": [], "error": ""}
+    picked: list[dict] = []
+    if reader and every_line:
+        try:
+            answer = reader([{"id": line["id"], "page": line["page"], "text": line["text"]} for line in every_line])
+            for item in answer.get("lines", []):
+                line = every_line[item["id"]]
+                picked.append(
+                    _from_label(
+                        line["page"],
+                        line["bbox"],
+                        rects[line["page"]],
+                        item["kind"],
+                        item["party"],
+                        line["text"],
+                        "ai",
+                    )
+                )
+            report.update(used=True, parties=answer.get("parties", []))
+        except Exception as exc:
+            report["error"] = str(exc)[:300] or exc.__class__.__name__
+
     kept: list[dict] = []
-    for field in found:
+    for field in picked + found:
         if any(_near(field, previous) for previous in kept):
             continue
         kept.append(field)
     order = {"signature": 0, "name": 1, "date": 2, "initials": 3}
     kept.sort(key=lambda field: (field["page"], field["y"], order.get(field["kind"], 9)))
-    return kept[:12], rotated
+    return kept[:16], rotated, report
 
 
 def png_has_ink(data: bytes) -> bool:

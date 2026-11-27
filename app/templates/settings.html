@@ -22,6 +22,12 @@
     {% else %}
     <p>Email is off. Signing links still work. Copy them from the file. To turn email on, set <span class="mono">SMTP_HOST</span>, <span class="mono">SMTP_PORT</span>, <span class="mono">SMTP_USER</span>, <span class="mono">SMTP_PASSWORD</span>, and <span class="mono">SMTP_FROM</span>.</p>
     {% endif %}
+    <h2>AI reading</h2>
+    {% if ai_on %}
+    <p>On, using <span class="mono">{{ ai_model }}</span>. When an agreement is uploaded, its text is sent to OpenAI to name the parties and find the lines to sign. Page images are not sent. If the call fails, the built-in rules place the fields instead.</p>
+    {% else %}
+    <p>Off. The built-in rules find signature, name, date, and initials labels. To turn it on, set <span class="mono">OPENAI_API_KEY</span>, and optionally <span class="mono">OPENAI_MODEL</span>.</p>
+    {% endif %}
     <h2>Lock</h2>
     {% if locked %}
     <p>The workspace asks for <span class="mono">SEAL_ACCESS_KEY</span> before anyone can open files. Signing links stay open without that key, which is what a client needs.</p>

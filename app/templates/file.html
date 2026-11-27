@@ -38,6 +38,11 @@
       <p class="hint">Fields are locked because someone has signed.</p>
       {% endif %}
 
+      {% if ai_event and ai_event.kind == 'ai_read' %}
+      <p class="banner quiet">OpenAI read the agreement · {{ ai_event.detail }}. Boxes it found are on the lines below. Check them like any other.</p>
+      {% elif ai_event %}
+      <p class="banner">The OpenAI check didn't run ({{ ai_event.detail }}).</p>
+      {% endif %}
       {% if file.rotated %}
       <p class="banner">A page in this PDF is rotated, so automatic placement may be off. Drag the fields onto the lines.</p>
       {% endif %}
