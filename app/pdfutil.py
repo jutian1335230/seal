@@ -149,24 +149,21 @@ def _from_label(page_index: int, bbox: tuple, page_rect: fitz.Rect, kind: str, p
     x0 = (bbox[0] - page_rect.x0) / pw
     x1 = (bbox[2] - page_rect.x0) / pw
     line_w = max(0.0, x1 - x0)
-    baseline = (bbox[3] - page_rect.y0) / ph
+    line_bottom = (bbox[3] - page_rect.y0) / ph
     dw, dh = SIZES[kind]
+    # The box sits on the signing line, with its bottom edge just under it.
+    y = line_bottom - dh + 0.004
     # A line with a blank after the label should be filled, not followed by a box in the margin.
-    # Text is drawn from the top of the box, so the box has to start just above the line.
-    drop = 0.62 if kind == "signature" else 0.78
     if line_w >= 0.2:
         w = min(dw, max(0.16, line_w * 0.5))
         x = max(x0 + line_w - w, x0 + min(0.16, line_w * 0.34))
-        y = baseline - dh * drop
-        h = dh
     else:
         x = x1 + 0.015
-        y = baseline - dh * drop
-        w, h = dw, dh
+        w = dw
         if x + w > 0.97:
             x = x0
-            y = baseline + 0.01
-    return _field(page_index, x, y, w, h, kind, party, "detected")
+            y = line_bottom + 0.01
+    return _field(page_index, x, y, w, dh, kind, party, "detected")
 
 
 def _near(left: dict, right: dict) -> bool:
@@ -288,36 +285,35 @@ def _font_for(kind: str) -> tuple[str, str, tuple[float, float, float]]:
     return "seal-body", str(BODY_FONT), (0.12, 0.1, 0.08)
 
 
+TEXT_FIT = {
+    # (font size as a share of box height, baseline gap above the box bottom as a share of height)
+    "seal-sig": (0.9, 0.2),
+    "seal-body": (0.6, 0.34),
+}
+
+
 def _write_text(page: fitz.Page, box: fitz.Rect, text: str, kind: str) -> None:
     fontname, fontfile, color = _font_for(kind)
-    size = max(11, min(box.height * 0.72, 46)) if fontname == "seal-sig" else max(9, min(box.height * 0.62, 16))
-    for _ in range(7):
-        try:
-            spare = page.insert_textbox(
-                box,
-                text,
-                fontname=fontname,
-                fontfile=fontfile,
-                fontsize=size,
-                color=color,
-                align=fitz.TEXT_ALIGN_LEFT,
-            )
-        except Exception:
-            if fontname != "seal-body":
-                fontname, fontfile, color = "seal-body", str(BODY_FONT), (0.12, 0.1, 0.08)
-                continue
-            raise
-        if spare >= 0:
-            return
-        size *= 0.82
-    page.insert_textbox(
-        box,
+    try:
+        font = fitz.Font(fontfile=fontfile)
+    except Exception:
+        fontname, fontfile, color = "seal-body", str(BODY_FONT), (0.12, 0.1, 0.08)
+        font = fitz.Font(fontfile=fontfile)
+    share, gap = TEXT_FIT[fontname]
+    size = box.height * share
+    available = max(box.width - 4, 1)
+    length = font.text_length(text, fontsize=size)
+    if length > available:
+        size *= available / length
+    size = max(size, 5)
+    baseline = box.y1 - box.height * gap
+    page.insert_text(
+        (box.x0 + 2, baseline),
         text,
-        fontname="seal-body",
-        fontfile=str(BODY_FONT),
-        fontsize=8,
+        fontname=fontname,
+        fontfile=fontfile,
+        fontsize=size,
         color=color,
-        align=fitz.TEXT_ALIGN_LEFT,
     )
 
 

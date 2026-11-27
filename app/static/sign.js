@@ -17,6 +17,13 @@
     return name.trim().split(/\s+/).filter(Boolean).map(function (part) { return part[0]; }).join("").toUpperCase().slice(0, 4);
   }
 
+  function fit(node) {
+    node.style.fontSize = "";
+    if (!node.textContent || node.scrollWidth <= node.clientWidth) return;
+    const size = parseFloat(getComputedStyle(node).fontSize);
+    node.style.fontSize = (size * node.clientWidth / node.scrollWidth * 0.97) + "px";
+  }
+
   function paint() {
     const name = nameInput.value.trim();
     if (preview) preview.textContent = name;
@@ -32,8 +39,12 @@
       } else if (kind === "date") {
         node.textContent = form.dataset.date || "";
       }
+      fit(node);
     });
   }
+
+  window.addEventListener("resize", paint);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(paint);
 
   function sizePad() {
     if (!pad || !ctx) return;

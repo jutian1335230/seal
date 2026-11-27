@@ -79,6 +79,21 @@ def test_detector_ignores_sentences_and_keeps_labels(tmp_path):
     signature = next(field for field in fields if field["kind"] == "signature")
     assert signature["y"] > 0.5
 
+    doc = fitz.open(path)
+    page = doc[0]
+    line = next(
+        block_line
+        for block in page.get_text("dict")["blocks"]
+        for block_line in block.get("lines", [])
+        if "Signature" in "".join(span["text"] for span in block_line["spans"])
+    )
+    line_bottom = line["bbox"][3] / page.rect.height
+    box_bottom = signature["y"] + signature["h"]
+    doc.close()
+    # The box rests on the line rather than straddling it.
+    assert abs(box_bottom - line_bottom) < 0.01
+    assert signature["y"] < line_bottom - signature["h"] * 0.8
+
 
 def test_sample_file_finds_a_signature(client):
     created = client.post("/sample", follow_redirects=False)

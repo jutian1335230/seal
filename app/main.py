@@ -67,6 +67,9 @@ app = FastAPI(title="Seal", lifespan=lifespan)
 templates = Jinja2Templates(directory=str(ROOT / "app" / "templates"))
 templates.env.filters["pretty"] = db.pretty_time
 templates.env.filters["tojson"] = lambda value: Markup(json.dumps(value).replace("<", "\\u003c"))
+templates.env.globals["asset_version"] = str(
+    max(int(path.stat().st_mtime) for path in (ROOT / "app" / "static").glob("*.*"))
+)
 app.mount("/static", StaticFiles(directory=str(ROOT / "app" / "static")), name="static")
 
 

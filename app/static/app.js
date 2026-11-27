@@ -174,7 +174,7 @@
       if (!hint) return;
       hint.textContent = tool === "select"
         ? "Drag a field to move it. Drag the corner to resize it."
-        : "Click the agreement to place a " + tool + " field.";
+        : "Click the line where the " + tool + " should go.";
     });
   });
 
@@ -191,8 +191,9 @@
       }
       const rect = sheet.getBoundingClientRect();
       const size = sizes[tool];
+      // People click on the line they want signed, so the box sits on top of the click.
       const x = ((event.clientX - rect.left) / rect.width) - size[0] / 2;
-      const y = ((event.clientY - rect.top) / rect.height) - size[1] / 2;
+      const y = ((event.clientY - rect.top) / rect.height) - size[1] * 0.9;
       try {
         const created = await send("/api/files/" + state.fileId + "/fields", "POST", {
           signer_id: signer.id,
