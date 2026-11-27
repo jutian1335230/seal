@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}New file · Seal{% endblock %}
+{% block body %}
+<div class="wrap narrow">
+  <p class="kicker">New file</p>
+  <h1>Who is this agreement for?</h1>
+  <p class="lede">Use a test name and a test email. The agreement can be any PDF Seal hasn't seen before.</p>
+  {% if error %}<p class="flash bad">{{ error }}</p>{% endif %}
+  <form class="stack card" method="post" action="/files" enctype="multipart/form-data">
+    <label for="title">File name</label>
+    <input id="title" name="title" maxlength="160" placeholder="Northwind engagement" value="{{ form.title or '' }}">
+
+    <label for="client_name">Client name</label>
+    <input id="client_name" name="client_name" required maxlength="120" value="{{ form.client_name or '' }}">
+
+    <label for="client_email">Client email</label>
+    <input id="client_email" name="client_email" type="email" required maxlength="200" placeholder="client@example.com" value="{{ form.client_email or '' }}">
+
+    <label for="note">Internal note</label>
+    <textarea id="note" name="note" maxlength="2000" placeholder="Shown only on this file, not printed on the agreement.">{{ form.note or '' }}</textarea>
+
+    <label for="agreement">Agreement PDF</label>
+    <div id="drop" class="drop">
+      <strong>Drop the PDF here</strong>
+      <span>or choose a file. 15 MB max.</span>
+      <input id="agreement" name="agreement" type="file" accept="application/pdf,.pdf" required>
+    </div>
+
+    <button class="primary" type="submit">Create the file</button>
+  </form>
+</div>
+<script src="/static/app.js"></script>
+{% endblock %}

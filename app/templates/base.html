@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{% block title %}Seal{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,520;9..144,640&family=Great+Vibes&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap bar">
+      {% if public_page %}
+      <span class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>
+          <span class="brand-name">Seal</span>
+          <span class="brand-tag">Signed before the work starts</span>
+        </span>
+      </span>
+      {% else %}
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>
+          <span class="brand-name">Seal</span>
+          <span class="brand-tag">Signed before the work starts</span>
+        </span>
+      </a>
+      <nav>
+        {% if company_name %}<span class="company">{{ company_name }}</span>{% endif %}
+        <a href="/settings">Settings</a>
+        <a class="button small" href="/files/new">New file</a>
+      </nav>
+      {% endif %}
+    </div>
+    <p class="test-banner">Test data only. Don't put a real person's information in here.</p>
+  </header>
+  <main>
+    {% block body %}{% endblock %}
+  </main>
+  <footer class="wrap foot">Seal writes into the signature fields only. The agreement's words stay as they were.</footer>
+</body>
+</html>

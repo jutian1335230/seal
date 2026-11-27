@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Sign {{ file.title }} · Seal{% endblock %}
+{% block body %}
+<div class="wrap wide">
+  {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
+
+  {% if mode == 'paused' %}
+  <div class="narrow card solo">
+    <p class="kicker">{{ company_name or 'Agreement' }}</p>
+    <h1>This link is paused.</h1>
+    <p class="lede">{{ signer.name }}, the sender pulled this agreement back. Ask them to send it again when the fields are ready.</p>
+  </div>
+
+  {% elif mode == 'done' %}
+  <div class="file-head">
+    <div>
+      <p class="kicker">{{ company_name or 'Agreement' }}</p>
+      <h1>You signed {{ file.title }}.</h1>
+      {% if file.status == 'complete' %}
+      <p class="lede">Everyone has signed. The file is ready for work to start.</p>
+      <a class="button primary" href="/sign/{{ signer.token }}/download">Download the signed agreement</a>
+      {% else %}
+      <p class="lede">You're done. Still waiting on {{ others|join(', ') if others else 'the other signers' }}.</p>
+      {% endif %}
+    </div>
+    <div class="seal-mark">Signed</div>
+  </div>
+  <div class="document">
+    {% for i in range(pages) %}
+    <figure class="sheet">
+      <img src="/sign/{{ signer.token }}/pages/{{ i }}.png?v={{ signer.signed_at or signer.status }}" alt="Page {{ i + 1 }} of the signed agreement">
+      <figcaption>Page {{ i + 1 }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="sign-layout">
+    <div class="document">
+      <p class="kicker">{{ company_name or 'Agreement' }}</p>
+      <h1>{{ file.title }}</h1>
+      <p class="lede">The boxes are where your signature, name, and the date will go. Nothing else on the agreement is changed.</p>
+      {% for i in range(pages) %}
+      <figure class="sheet">
+        <img src="/sign/{{ signer.token }}/pages/{{ i }}.png?v={{ signer.status }}" alt="Page {{ i + 1 }} of {{ file.title }}">
+        <div class="overlay">
+          {% for field in fields if field.page == i %}
+          <div class="sign-field" data-kind="{{ field.kind }}" style="left: {{ field.x * 100 }}%; top: {{ field.y * 100 }}%; width: {{ field.w * 100 }}%; height: {{ field.h * 100 }}%;">
+            <span class="ghost">{{ field.label }}</span>
+            <span class="live" data-live="{{ field.kind }}">{% if field.kind == 'date' %}{{ today }}{% endif %}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <figcaption>Page {{ i + 1 }}</figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+
+    <aside class="rail">
+      <form id="sign-form" class="card stack sticky" method="post" action="/sign/{{ signer.token }}" enctype="multipart/form-data" data-date="{{ today }}">
+        <h2>Sign as {{ signer.name }}</h2>
+        {% if error %}<p class="flash bad">{{ error }}</p>{% endif %}
+        {% set signature_fields = fields | selectattr('kind', 'equalto', 'signature') | list %}
+        {% if not signature_fields %}
+        <p>There isn't a signature field for you on this agreement yet. Ask the sender to place one.</p>
+        {% else %}
+        <p class="hint">One signature fills every field assigned to you, including your name, initials, and today's date ({{ today }}, UTC).</p>
+        <label for="full_name">Full name</label>
+        <input id="full_name" name="full_name" required maxlength="120" value="{{ signer.name }}" autocomplete="name">
+        <p id="typed-preview" class="script-preview">{{ signer.name }}</p>
+
+        <div class="tabs">
+          <button type="button" class="tab on" data-mode="typed">Type</button>
+          <button type="button" class="tab" data-mode="drawn">Draw</button>
+        </div>
+        <input type="hidden" name="mode" id="mode" value="typed">
+        <div id="draw-panel" hidden>
+          <canvas id="pad" width="600" height="180"></canvas>
+          <button type="button" class="texty" id="clear-pad">Clear drawing</button>
+          <input id="signature_png" name="signature_png" type="file" accept="image/png" hidden>
+        </div>
+
+        <label class="check"><input type="checkbox" name="consent" required> I agree this is my signature on this agreement.</label>
+        <button class="primary" type="submit">Sign the agreement</button>
+        <noscript><p class="hint">Drawing needs JavaScript. Typing your name works without it.</p></noscript>
+        {% endif %}
+      </form>
+    </aside>
+  </div>
+  <script src="/static/sign.js"></script>
+  {% endif %}
+</div>
+{% endblock %}

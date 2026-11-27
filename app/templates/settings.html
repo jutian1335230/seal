@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Settings · Seal{% endblock %}
+{% block body %}
+<div class="wrap narrow">
+  {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
+  {% if error %}<p class="flash bad">{{ error }}</p>{% endif %}
+  <p class="kicker">Settings</p>
+  <h1>This workspace</h1>
+  <p class="lede">One company per deployment. The name shows on the signing page and on the completion record.</p>
+  <form class="stack card" method="post" action="/settings">
+    <label for="company_name">Company name</label>
+    <input id="company_name" name="company_name" maxlength="80" value="{{ company_name }}">
+    <label for="company_email">Company email</label>
+    <input id="company_email" name="company_email" type="email" maxlength="200" value="{{ company_email }}">
+    <button class="primary" type="submit">Save</button>
+  </form>
+
+  <section class="card prose">
+    <h2>Email</h2>
+    {% if email_enabled %}
+    <p>Email is on. Signing links can be mailed from this server.</p>
+    {% else %}
+    <p>Email is off. Signing links still work. Copy them from the file. To turn email on, set <span class="mono">SMTP_HOST</span>, <span class="mono">SMTP_PORT</span>, <span class="mono">SMTP_USER</span>, <span class="mono">SMTP_PASSWORD</span>, and <span class="mono">SMTP_FROM</span>.</p>
+    {% endif %}
+    <h2>Lock</h2>
+    {% if locked %}
+    <p>The workspace asks for <span class="mono">SEAL_ACCESS_KEY</span> before anyone can open files. Signing links stay open without that key, which is what a client needs.</p>
+    {% else %}
+    <p>The workspace is open, so a reviewer can use it on the first visit. Set <span class="mono">SEAL_ACCESS_KEY</span> before real use. Signing links keep working without the key.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

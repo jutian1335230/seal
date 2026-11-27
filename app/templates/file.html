@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}{{ file.title }} · Seal{% endblock %}
+{% block body %}
+{% set outstanding = signers | rejectattr('status', 'equalto', 'signed') | list %}
+<div class="wrap wide">
+  {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
+  <div class="file-head">
+    <div>
+      <p class="kicker">File</p>
+      <h1>{{ file.title }}</h1>
+      <p class="sub">{{ file.client_name }} · {{ file.client_email }}</p>
+      {% if file.note %}<p class="note">{{ file.note }}</p>{% endif %}
+    </div>
+    <div class="file-head-side">
+      {% if file.status == 'complete' %}<div class="seal-mark">Ready</div>{% endif %}
+      <span id="file-status" class="pill {{ file.status }}">{{ status_label }}</span>
+    </div>
+  </div>
+
+  <ol class="steps">
+    <li class="{{ 'done' if has_signature else '' }}">Check the fields</li>
+    <li class="{{ 'done' if (signers | selectattr('status', 'equalto', 'signed') | list) else '' }}">Get it signed</li>
+    <li class="{{ 'done' if file.status == 'complete' else '' }}">Start the work</li>
+  </ol>
+
+  <div class="workspace">
+    <div class="document">
+      {% if editable %}
+      <div class="toolbar" role="toolbar" aria-label="Field tools">
+        <button type="button" class="tool on" data-tool="select">Move</button>
+        <button type="button" class="tool" data-tool="signature">Signature</button>
+        <button type="button" class="tool" data-tool="initials">Initials</button>
+        <button type="button" class="tool" data-tool="name">Name</button>
+        <button type="button" class="tool" data-tool="date">Date</button>
+        <span id="tool-hint" class="hint">Drag a field to move it. Drag the corner to resize it.</span>
+      </div>
+      {% else %}
+      <p class="hint">Fields are locked because someone has signed.</p>
+      {% endif %}
+
+      {% if file.rotated %}
+      <p class="banner">A page in this PDF is rotated, so automatic placement may be off. Drag the fields onto the lines.</p>
+      {% endif %}
+      {% if not file.accepting %}
+      <p class="banner">Links are paused. Mark the file out for signature when the fields are right.</p>
+      {% elif not fields %}
+      <p class="banner">No signature lines were found. Choose Signature, then click the page where someone should sign.</p>
+      {% elif other_warning %}
+      <p class="banner">Some fields look like they belong to the other party. Add that signer and reassign them, or remove the fields if only the client signs.</p>
+      {% else %}
+      <p class="banner quiet">{{ fields|length }} field{{ '' if fields|length == 1 else 's' }} on the agreement. Drag any that missed. Nothing is emailed until you send it.</p>
+      {% endif %}
+      <p id="save-state" class="hint" role="status"></p>
+
+      <div id="pages">
+        {% for i in range(pages) %}
+        <figure class="sheet" data-page="{{ i }}">
+          <img src="/files/{{ file.id }}/pages/{{ i }}.png?v={{ file.status }}-{{ file.completed_at or '' }}" alt="Page {{ i + 1 }} of {{ file.title }}">
+          <div class="overlay">
+            {% for field in fields if field.page == i %}
+            <div class="field {{ field.css }}" data-id="{{ field.id }}" data-kind="{{ field.kind }}" data-signer="{{ field.signer_id }}" style="left: {{ field.x * 100 }}%; top: {{ field.y * 100 }}%; width: {{ field.w * 100 }}%; height: {{ field.h * 100 }}%;">
+              <span class="field-tag">{{ field.tag }}</span>
+              {% if editable %}<i class="handle" data-resize></i>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <figcaption>Page {{ i + 1 }}</figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+    </div>
+
+    <aside class="rail">
+      <section>
+        <h2>Signing links</h2>
+        {% if not signers %}
+        <p class="hint">Add the person who needs to sign.</p>
+        {% endif %}
+        {% for signer in signers %}
+        <div class="signer">
+          <div class="signer-line">
+            <strong>{{ signer.name }}</strong>
+            <span class="pill tiny {{ signer.status }}" data-signer-pill="{{ signer.id }}">{{ signer.status }}</span>
+          </div>
+          <p class="hint">{{ signer.email }} · {{ 'Client' if signer.role == 'client' else 'Our side' }}</p>
+          {% if file.accepting %}
+          <label class="sr" for="link-{{ signer.id }}">Signing link for {{ signer.name }}</label>
+          <input id="link-{{ signer.id }}" readonly value="{{ base }}/sign/{{ signer.token }}">
+          <div class="row-actions">
+            <button type="button" class="ghost small" data-copy="link-{{ signer.id }}">Copy link</button>
+            {% if signer.status != 'signed' %}
+            <form method="post" action="/files/{{ file.id }}/remind/{{ signer.id }}">
+              <button class="ghost small" type="submit">Record a reminder</button>
+            </form>
+            {% endif %}
+          </div>
+          {% else %}
+          <p class="hint">This link is paused.</p>
+          {% endif %}
+          {% if editable %}
+          <form method="post" action="/files/{{ file.id }}/signers/{{ signer.id }}/delete" onsubmit="return confirm('Remove this signer and their fields?');">
+            <button class="texty" type="submit">Remove signer</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+
+        {% if editable %}
+        <form class="stack tight" method="post" action="/files/{{ file.id }}/signers">
+          <h3>Add a signer</h3>
+          <input name="name" placeholder="Name" required maxlength="120" aria-label="Signer name">
+          <input name="email" type="email" placeholder="name@example.com" required maxlength="200" aria-label="Signer email">
+          <select name="role" aria-label="Which side they sign for">
+            <option value="firm">Our side</option>
+            <option value="client">Client</option>
+          </select>
+          <button class="ghost" type="submit">Add signer</button>
+        </form>
+        {% endif %}
+      </section>
+
+      <section id="inspector" hidden>
+        <h2>Selected field</h2>
+        <label for="inspector-signer">Who signs this</label>
+        <select id="inspector-signer"></select>
+        <button type="button" class="ghost" id="inspector-delete">Remove field</button>
+      </section>
+
+      {% if file.status != 'complete' %}
+      <section>
+        <h2>Send</h2>
+        <form class="stack tight" method="post" action="/files/{{ file.id }}/send">
+          <label class="check"><input type="checkbox" name="confirm" required> I checked the fields. They sit on the right lines of this agreement.</label>
+          <button class="primary" type="submit">{% if email_enabled %}Email the signing links{% else %}Mark out for signature{% endif %}</button>
+          {% if not email_enabled %}
+          <p class="hint">No email server is configured. The link above is how someone signs. You can still mark the file as sent.</p>
+          {% endif %}
+        </form>
+      </section>
+      {% endif %}
+
+      <section>
+        {% if file.status == 'complete' %}
+        <h2>Ready to start work</h2>
+        <a class="button primary" href="/files/{{ file.id }}/download">Download signed agreement</a>
+        {% else %}
+        <h2>Agreement</h2>
+        <a class="button ghost" href="/files/{{ file.id }}/download">Download current PDF</a>
+        {% endif %}
+        <p><a href="/files/{{ file.id }}/original">Original upload</a></p>
+        {% if signers and not outstanding and file.status != 'complete' %}
+        <form method="post" action="/files/{{ file.id }}/finish">
+          <button class="primary" type="submit">Finish the file</button>
+        </form>
+        {% endif %}
+      </section>
+
+      {% if editable and file.accepting %}
+      <form method="post" action="/files/{{ file.id }}/recall">
+        <button class="ghost" type="submit">Pull the links back</button>
+      </form>
+      {% endif %}
+
+      <details>
+        <summary>Activity</summary>
+        <ul class="log">
+          {% for event in events %}
+          <li><time>{{ event.created_at|pretty }}</time> {{ event.kind|replace('_', ' ') }}{% if event.detail %} · {{ event.detail }}{% endif %}</li>
+          {% else %}
+          <li>No activity yet.</li>
+          {% endfor %}
+        </ul>
+      </details>
+
+      <details>
+        <summary>Document fingerprint</summary>
+        <p class="mono">{{ file.doc_sha256 }}</p>
+        <p class="hint">This is the hash of the PDF you uploaded, before any signature was added.</p>
+      </details>
+
+      {% if editable %}
+      <details>
+        <summary>Edit file details</summary>
+        <form class="stack tight" method="post" action="/files/{{ file.id }}/details">
+          <label for="title">File name</label>
+          <input id="title" name="title" value="{{ file.title }}" required maxlength="160">
+          <label for="client_name">Client name</label>
+          <input id="client_name" name="client_name" value="{{ file.client_name }}" required maxlength="120">
+          <label for="client_email">Client email</label>
+          <input id="client_email" name="client_email" type="email" value="{{ file.client_email }}" required maxlength="200">
+          <label for="note">Internal note</label>
+          <textarea id="note" name="note" maxlength="2000">{{ file.note }}</textarea>
+          <button class="ghost" type="submit">Save details</button>
+        </form>
+      </details>
+      {% endif %}
+
+      <form method="post" action="/files/{{ file.id }}/delete" onsubmit="return confirm('Delete this file and its PDFs?');">
+        <button class="danger" type="submit">Delete file</button>
+      </form>
+    </aside>
+  </div>
+</div>
+<script id="file-state" type="application/json">{{ state|tojson }}</script>
+<script src="/static/app.js"></script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Files · Seal{% endblock %}
+{% block body %}
+<div class="wrap">
+  {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
+  <div class="page-head">
+    <div>
+      <p class="kicker">Files</p>
+      <h1>Nothing starts until it's signed.</h1>
+      <p class="lede">A file is one job for one client. Upload the agreement they have to sign, check the signature fields, and send a link. When it's signed, the file is ready to start.</p>
+    </div>
+    <div class="head-actions">
+      <a class="button primary" href="/files/new">New file</a>
+      <form method="post" action="/sample">
+        <button class="ghost" type="submit">Load a sample file</button>
+      </form>
+    </div>
+  </div>
+
+  {% if files %}
+  <label class="filter-label" for="filter">Filter</label>
+  <input id="filter" type="search" placeholder="Filter by client or file" autocomplete="off">
+  <table>
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Client</th>
+        <th>Signatures</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for file in files %}
+      <tr data-filter="{{ (file.title ~ ' ' ~ file.client_name ~ ' ' ~ file.client_email)|lower }}">
+        <td><a class="row-link" href="/files/{{ file.id }}">{{ file.title }}</a></td>
+        <td>{{ file.client_name }}</td>
+        <td>{{ file.signed }} / {{ file.signer_count }}</td>
+        <td><span class="pill {{ file.status }}">{{ file.label }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <section class="empty">
+    <h2>No files yet</h2>
+    <p>Start with the sample if you want to click through a fictional agreement, or upload the one you actually need signed.</p>
+  </section>
+  {% endif %}
+</div>
+<script src="/static/app.js"></script>
+{% endblock %}

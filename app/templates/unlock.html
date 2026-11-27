@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Unlock · Seal{% endblock %}
+{% block body %}
+<div class="wrap narrow">
+  <p class="kicker">Workspace</p>
+  <h1>Enter the workspace key.</h1>
+  <p class="lede">Files stay behind this key. A signing link does not need it.</p>
+  {% if error %}<p class="flash bad">{{ error }}</p>{% endif %}
+  <form class="stack card" method="post" action="/unlock">
+    <label for="key">Workspace key</label>
+    <input id="key" name="key" type="password" required autocomplete="current-password">
+    <button class="primary" type="submit">Unlock</button>
+  </form>
+</div>
+{% endblock %}
