@@ -232,7 +232,8 @@ def detect_fields(path: Path, reader=None) -> tuple[list[dict], bool, dict]:
             lines = []
             for block in page.get_text("dict").get("blocks", []):
                 for line in block.get("lines", []):
-                    text = "".join(span.get("text", "") for span in line.get("spans", [])).strip()
+                    text = "".join(span.get("text", "") for span in line.get("spans", []))
+                    text = text.replace("\xa0", " ").strip()
                     bbox = line.get("bbox")
                     if not text or not bbox:
                         continue
@@ -475,6 +476,54 @@ def build_sample_pdf() -> bytes:
     second.insert_text((64, 130), "Signature: ________________________________", **body)
     second.insert_text((64, 190), "Printed name: ____________________________", **body)
     second.insert_text((64, 250), "Date: ____________________________________", **body)
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    doc.close()
+    return buffer.getvalue()
+
+
+def build_tricky_sample_pdf() -> bytes:
+    """A fictional agreement whose execution block avoids every label the rules know:
+    bare blank lines with captions under them, "Name in full", and "On (date)"."""
+    doc = fitz.open()
+    body = dict(fontname="seal-body", fontfile=str(BODY_FONT), fontsize=11.5, color=(0.12, 0.1, 0.08))
+    small = dict(fontname="seal-body", fontfile=str(BODY_FONT), fontsize=9.5, color=(0.35, 0.3, 0.26))
+    first = doc.new_page(width=612, height=792)
+    first.insert_textbox(
+        fitz.Rect(64, 64, 548, 740),
+        (
+            "ENGAGEMENT TERMS\n\n"
+            "This is a fictional sample for trying Seal. It is not a real client's agreement, "
+            "and the people named in it are not real.\n\n"
+            "These terms are made between Northwind Studio LLC (the \"Studio\") and "
+            "Jordan Hale (the \"Customer\").\n\n"
+            "1. The Studio will start the work on this file only once these terms are accepted.\n"
+            "2. The Customer may end the engagement by written notice at any time.\n"
+            "3. Each party keeps the materials it brought to the engagement.\n"
+            "4. Nothing in this sample is legal advice.\n\n"
+            "The execution page follows."
+        ),
+        **body,
+    )
+    second = doc.new_page(width=612, height=792)
+    second.insert_text((64, 80), "EXECUTION", fontsize=11, fontname="seal-body", fontfile=str(BODY_FONT), color=(0.4, 0.16, 0.14))
+    second.insert_textbox(
+        fitz.Rect(64, 96, 548, 140),
+        "IN WITNESS WHEREOF the parties have executed these terms on the dates set out below.",
+        **body,
+    )
+
+    second.insert_text((64, 180), "For and on behalf of Northwind Studio LLC", **body)
+    second.insert_text((64, 226), "______________________________", **body)
+    second.insert_text((64, 241), "Authorised signatory", **small)
+    second.insert_text((64, 276), "Name in full: ________________________", **body)
+    second.insert_text((64, 310), "On (date): ___________________________", **body)
+
+    second.insert_text((64, 390), "Accepted and agreed by the Customer", **body)
+    second.insert_text((64, 436), "______________________________", **body)
+    second.insert_text((64, 451), "(signature of the Customer)", **small)
+    second.insert_text((64, 486), "Name in full: ________________________", **body)
+    second.insert_text((64, 520), "On (date): ___________________________", **body)
     buffer = io.BytesIO()
     doc.save(buffer)
     doc.close()

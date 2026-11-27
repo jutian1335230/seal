@@ -34,7 +34,7 @@ def ai_enabled() -> bool:
 
 
 def model_name() -> str:
-    return os.environ.get("OPENAI_MODEL", "").strip() or "gpt-4o-mini"
+    return os.environ.get("OPENAI_MODEL", "").strip() or "gpt-6-luna"
 
 
 def _budget(lines: list[dict]) -> list[dict]:

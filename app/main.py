@@ -32,6 +32,7 @@ from app.pdfutil import (
     already_certified,
     append_certificate,
     build_sample_pdf,
+    build_tricky_sample_pdf,
     clamp_box,
     detect_fields,
     page_count,
@@ -522,6 +523,22 @@ def create_sample():
         "Fictional sample. Safe to delete.",
     )
     return redirect(f"/files/{file_id}", "Sample file loaded. Jordan Hale is not a real person.")
+
+
+@app.post("/sample/tricky")
+def create_tricky_sample():
+    file_id = ingest(
+        build_tricky_sample_pdf(),
+        "sample-engagement-terms.pdf",
+        "Harder sample engagement",
+        "Jordan Hale",
+        "jordan.hale@example.com",
+        "Fictional sample with an execution block the built-in rules can't read. Safe to delete.",
+    )
+    message = "Harder sample loaded. Jordan Hale is not a real person."
+    if not ai_enabled():
+        message += " AI reading is off, so only the built-in rules ran."
+    return redirect(f"/files/{file_id}", message)
 
 
 @app.get("/files/{file_id}")

@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app import ai, db
 from app.main import app
-from app.pdfutil import detect_fields
+from app.pdfutil import build_tricky_sample_pdf, detect_fields
 
 
 def _unusual_pdf() -> bytes:
@@ -121,6 +121,49 @@ def test_upload_records_what_the_model_found(client, monkeypatch):
     page = client.get(f"/files/{file_id}").text
     assert "OpenAI read the agreement" in page
     assert "Jordan Hale (client)" in page
+
+
+def test_harder_sample_needs_the_model(tmp_path, monkeypatch):
+    path = tmp_path / "tricky.pdf"
+    path.write_bytes(build_tricky_sample_pdf())
+    fields, _rotated, _report = detect_fields(path)
+    assert fields == []
+
+    def fake_model(listing):
+        rows = [row.split(" | ", 2) for row in listing.splitlines()]
+        page_two = [(int(line_id), text) for line_id, page, text in rows if page == "2"]
+        blanks = [line_id for line_id, text in page_two if set(text) <= set("_ ")]
+        names = [line_id for line_id, text in page_two if text.startswith("Name in full")]
+        dates = [line_id for line_id, text in page_two if text.startswith("On (date)")]
+        lines = []
+        for index, party in ((0, "other"), (1, "client")):
+            lines += [
+                {"id": blanks[index], "kind": "signature", "party": party},
+                {"id": names[index], "kind": "name", "party": party},
+                {"id": dates[index], "kind": "date", "party": party},
+            ]
+        return json.dumps({"parties": [], "lines": lines})
+
+    monkeypatch.setattr(ai, "ask_model", fake_model)
+    fields, _rotated, report = detect_fields(path, ai.read_agreement)
+    assert report["used"] is True
+    assert [(field["kind"], field["party"]) for field in fields] == [
+        ("signature", "other"),
+        ("name", "other"),
+        ("date", "other"),
+        ("signature", "client"),
+        ("name", "client"),
+        ("date", "client"),
+    ]
+
+
+def test_harder_sample_route(client, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    response = client.post("/sample/tricky", follow_redirects=False)
+    assert response.status_code == 303
+    file_id = response.headers["location"].rsplit("/", 1)[-1]
+    assert client.get(f"/api/files/{file_id}").json()["fields"] == []
+    assert "No signature lines were found" in client.get(f"/files/{file_id}").text
 
 
 def test_upload_still_works_when_the_model_fails(client, monkeypatch):
