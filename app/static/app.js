@@ -183,13 +183,14 @@
       if (event.target.closest(".field")) return;
       if (tool === "select") return;
       const sheet = event.target.closest(".sheet");
-      if (!sheet) return;
+      const frame = event.target.closest(".frame");
+      if (!sheet || !frame) return;
       const signer = defaultSigner();
       if (!signer) {
         setStatus("Add a signer before placing fields.");
         return;
       }
-      const rect = sheet.getBoundingClientRect();
+      const rect = frame.getBoundingClientRect();
       const size = sizes[tool];
       // People click on the line they want signed, so the box sits on top of the click.
       const x = ((event.clientX - rect.left) / rect.width) - size[0] / 2;
@@ -216,12 +217,12 @@
       if (!field) return;
       event.stopPropagation();
       selectField(field);
-      const sheet = field.closest(".sheet");
-      const rect = sheet.getBoundingClientRect();
+      const frame = field.closest(".frame");
+      const rect = frame.getBoundingClientRect();
       const box = field.getBoundingClientRect();
       drag = {
         field: field,
-        sheet: sheet,
+        frame: frame,
         mode: event.target.closest("[data-resize]") ? "resize" : "move",
         dx: event.clientX - box.left,
         dy: event.clientY - box.top,
@@ -233,7 +234,7 @@
 
     pages.addEventListener("pointermove", function (event) {
       if (!drag) return;
-      const rect = drag.sheet.getBoundingClientRect();
+      const rect = drag.frame.getBoundingClientRect();
       if (drag.mode === "move") {
         const width = parseFloat(drag.field.style.width) / 100;
         const height = parseFloat(drag.field.style.height) / 100;

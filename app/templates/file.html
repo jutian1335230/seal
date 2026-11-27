@@ -55,14 +55,16 @@
       <div id="pages">
         {% for i in range(pages) %}
         <figure class="sheet" data-page="{{ i }}">
-          <img src="/files/{{ file.id }}/pages/{{ i }}.png?v={{ file.status }}-{{ file.completed_at or '' }}" alt="Page {{ i + 1 }} of {{ file.title }}">
-          <div class="overlay">
-            {% for field in fields if field.page == i %}
-            <div class="field {{ field.css }}" data-id="{{ field.id }}" data-kind="{{ field.kind }}" data-signer="{{ field.signer_id }}" style="left: {{ field.x * 100 }}%; top: {{ field.y * 100 }}%; width: {{ field.w * 100 }}%; height: {{ field.h * 100 }}%;">
-              <span class="field-tag">{{ field.tag }}</span>
-              {% if editable %}<i class="handle" data-resize></i>{% endif %}
+          <div class="frame">
+            <img src="/files/{{ file.id }}/pages/{{ i }}.png?v={{ file.status }}-{{ file.completed_at or '' }}" alt="Page {{ i + 1 }} of {{ file.title }}">
+            <div class="overlay">
+              {% for field in fields if field.page == i %}
+              <div class="field {{ field.css }}" data-id="{{ field.id }}" data-kind="{{ field.kind }}" data-signer="{{ field.signer_id }}" style="left: {{ field.x * 100 }}%; top: {{ field.y * 100 }}%; width: {{ field.w * 100 }}%; height: {{ field.h * 100 }}%;">
+                <span class="field-tag">{{ field.tag }}</span>
+                {% if editable %}<i class="handle" data-resize></i>{% endif %}
+              </div>
+              {% endfor %}
             </div>
-            {% endfor %}
           </div>
           <figcaption>Page {{ i + 1 }}</figcaption>
         </figure>

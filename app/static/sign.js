@@ -44,7 +44,14 @@
   }
 
   window.addEventListener("resize", paint);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(paint);
+  if (document.fonts) {
+    // The script font can arrive after the first fit, which would leave a long name cut off.
+    document.fonts.addEventListener("loadingdone", paint);
+    Promise.all([
+      document.fonts.load('40px "Great Vibes"'),
+      document.fonts.load('16px "Lato"')
+    ]).then(paint, paint);
+  }
 
   function sizePad() {
     if (!pad || !ctx) return;

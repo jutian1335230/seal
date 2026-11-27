@@ -42,14 +42,16 @@
       <p class="lede">The boxes are where your signature, name, and the date will go. Nothing else on the agreement is changed.</p>
       {% for i in range(pages) %}
       <figure class="sheet">
-        <img src="/sign/{{ signer.token }}/pages/{{ i }}.png?v={{ signer.status }}" alt="Page {{ i + 1 }} of {{ file.title }}">
-        <div class="overlay">
-          {% for field in fields if field.page == i %}
-          <div class="sign-field" data-kind="{{ field.kind }}" style="left: {{ field.x * 100 }}%; top: {{ field.y * 100 }}%; width: {{ field.w * 100 }}%; height: {{ field.h * 100 }}%;">
-            <span class="ghost">{{ field.label }}</span>
-            <span class="live" data-live="{{ field.kind }}">{% if field.kind == 'date' %}{{ today }}{% endif %}</span>
+        <div class="frame">
+          <img src="/sign/{{ signer.token }}/pages/{{ i }}.png?v={{ signer.status }}" alt="Page {{ i + 1 }} of {{ file.title }}">
+          <div class="overlay">
+            {% for field in fields if field.page == i %}
+            <div class="sign-field" data-kind="{{ field.kind }}" style="left: {{ field.x * 100 }}%; top: {{ field.y * 100 }}%; width: {{ field.w * 100 }}%; height: {{ field.h * 100 }}%;">
+              <span class="ghost">{{ field.label }}</span>
+              <span class="live" data-live="{{ field.kind }}">{% if field.kind == 'date' %}{{ today }}{% endif %}</span>
+            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
         </div>
         <figcaption>Page {{ i + 1 }}</figcaption>
       </figure>
